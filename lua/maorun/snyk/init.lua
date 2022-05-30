@@ -72,11 +72,10 @@ function M.setup(options)
 
     vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost" }, {
         group = snykGroup,
-        pattern = "*",
+        pattern = {
+            '*.c', '*.cc', '*.cpp', '*.cxx', '*.h', '*.hpp', '*.hxx', '*.ejs', '*.es', '*.es6', '*.htm', '*.html', '*.js', '*.jsx', '*.ts', '*.tsx', '*.vue', '*.java', '*.erb', '*.haml', '*.rb', '*.rhtml', '*.slim', '*.py', '*.go', '*.ASPX', '*.Aspx', '*.CS', '*.Cs', '*.aspx', '*.cs', '*.php', '*.xml'
+        },
         callback = function(params)
-            if (vim.bo.filetype ~= "typescriptreact") then
-                return
-            end
             startJob(params)
         end
     })
