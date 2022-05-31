@@ -12,11 +12,6 @@ atm. only [Snyk Code](https://docs.snyk.io/products/snyk-code) is integrated
 [Getting started with Snyk](https://docs.snyk.io/getting-started)
 
 ### The following requirements should be implemented in the plugin, but atm. you are responsible for these steps
-- [Installation of Snyk CLI](https://docs.snyk.io/snyk-cli/install-the-snyk-cli)
-eg:
-```bash
-npm install -g snyk
-```
 - (once)
 ```bash
 snyk auth
