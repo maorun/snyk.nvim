@@ -44,15 +44,21 @@ local function test_code(currentFile, fullFile, json)
     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
 end
 
+local function getFilename(fullFile)
+    local head = string.find(fullFile, '[^/]+$')
+    return string.sub(fullFile, head)
+end
+local function getCwd(fullFile)
+    local head = string.find(fullFile, '[^/]+$')
+    return string.sub(fullFile, 1, head - 1)
+end
 
 local function startJob(params)
     local cmd = "snyk code test --json"
     local check = {}
     local fullFile = params.fullFile
-    -- @todo extract file and cwd from fullFile
-    local file = params.file
-    local cwd = params.cwd
-    printWithoutHistory('startJob')
+    local file = getFilename(fullFile)
+    local cwd = getCwd(fullFile)
     Job:new({
         command = snykCommand,
         cwd = cwd,
@@ -63,9 +69,6 @@ local function startJob(params)
         },
         interactive = false,
         on_stdout = function(error, data)
-            table.insert(check, data)
-        end,
-        on_stderr = function(error, data)
             table.insert(check, data)
         end,
         on_exit = function(signal)
@@ -126,6 +129,9 @@ local function auth()
         on_stdout = function(error, data)
             apiKey = data
         end,
+        on_stderr = function(error, data)
+            -- table.insert(check, data)
+        end,
         on_exit = function(signal)
             vim.schedule(function()
                 if (apiKey == '') then
@@ -157,6 +163,10 @@ function M.setup(options)
     end)
 
     local snykGroup = vim.api.nvim_create_augroup('snyk', {})
+    vim.api.nvim_clear_autocmds({
+        event={"BufReadPost", "BufWritePost" },
+        group = snykGroup,
+    })
     vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost" }, {
         group = snykGroup,
         pattern = {
@@ -165,8 +175,6 @@ function M.setup(options)
         callback = function(params)
             startJob({
                 fullFile = vim.fn.expand('<afile>'),
-                file = vim.fn.expand('<afile>:t'),
-                cwd = vim.fn.expand('<afile>:p:h'),
             })
         end
     })
