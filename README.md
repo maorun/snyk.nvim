@@ -11,12 +11,6 @@ atm. only [Snyk Code](https://docs.snyk.io/products/snyk-code) is integrated
 ## Requirements
 [Getting started with Snyk](https://docs.snyk.io/getting-started)
 
-### The following requirements should be implemented in the plugin, but atm. you are responsible for these steps
-- (once)
-```bash
-snyk auth
-```
-
 ## Installation
 eg:
 [vim-plug](https://github.com/junegunn/vim-plug)
