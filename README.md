@@ -18,7 +18,7 @@ eg:
 [vim-plug](https://github.com/junegunn/vim-plug)
 ```vim
 Plug 'nvim-lua/plenary.nvim'
-Plug 'maorun/snyk.nvim'
+Plug('maorun/snyk.nvim', { [ 'do' ]= 'npm install'  })
 ```
 
 ## Usage
