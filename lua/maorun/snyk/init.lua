@@ -7,7 +7,7 @@ local namespace = vim.api.nvim_create_namespace('snyk')
 
 local function printWithoutHistory(text)
     text = 'Snyk: ' .. text
-    vim.cmd("echo '" .. text .. "'")
+    -- vim.cmd("echo '" .. text .. "'")
 end
 
 -- perform diagnostic
