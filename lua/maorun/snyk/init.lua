@@ -110,6 +110,9 @@ local function getFilename(fullFile)
 end
 local function getCwd(fullFile)
     local head = string.find(fullFile, '[^/]+$')
+    if (head == 1) then
+        return '.'
+    end
     return string.sub(fullFile, 1, head - 1)
 end
 
