@@ -21,6 +21,6 @@
   },
   "homepage": "https://github.com/maorun/snyk.nvim#readme",
   "dependencies": {
-    "snyk": "^1.944.0"
+    "snyk": "^1.996.0"
   }
 }
