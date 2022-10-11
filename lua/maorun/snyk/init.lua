@@ -63,8 +63,8 @@ local function performIaC(currentFile, fullFile, json)
 
         return {
             bufnr = 0,
-            lnum = result.lineNumber,
-            end_lnum = result.lineNumber,
+            lnum = result.lineNumber - 1,
+            end_lnum = result.lineNumber - 1,
             col = 0,
             -- end_col = 1,
             severity = warning,
