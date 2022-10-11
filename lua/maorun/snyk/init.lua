@@ -3,7 +3,6 @@ local snykCommandGlobal = 'snyk'
 local snykCommand = rootDir .. "/node_modules/.bin/snyk"
 local Job = require('plenary.job')
 
-local namespace = vim.api.nvim_create_namespace('snyk')
 
 local function printWithoutHistory(text)
     text = 'Snyk: ' .. text
@@ -41,14 +40,13 @@ local function performTestCode(currentFile, fullFile, json)
         end
     end, json.runs[1].results)
 
+    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk' .. location.startLine .. location.endLine)
     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
 end
 
 -- perform diagnostic for IaC
--- todo: extract getColAndLineNumber from path
 local function performIaC(currentFile, fullFile, json)
     diagnostics = vim.tbl_map(function(result)
-
         local warning = result.severity
         if (warning == "medium") then
             warning = vim.diagnostic.severity.WARN
@@ -60,49 +58,46 @@ local function performIaC(currentFile, fullFile, json)
         else
             warning = vim.diagnostic.severity.HINT
         end
+        local linenumber = 0
+        Job:new({
+            command = 'npx',
+            cwd = cwd,
+            args = {
+                "ts-node",
+                "index.ts",
+                fullFile,
+                result.msg
+            },
+            interactive = false,
+            on_stdout = function(error, data)
+                linenumber = data
+            end,
+            on_exit = function(signal)
+                vim.schedule(function()
+                    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk' .. linenumber)
+                    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {{
+                        bufnr = 0,
+                        lnum = tonumber(linenumber),
+                        end_lnum = tonumber(linenumber),
+                        col = 0,
+                        -- end_col = 1,
+                        severity = warning,
+                        message =
+                            'Issue: ' .. result.iacDescription.issue .. '\n' ..
+                            'Impact: ' .. result.iacDescription.impact .. '\n' .. 
+                            'Resolve: ' .. result.iacDescription.resolve .. '\n' ..
+                            '(' .. result.msg .. ')\n' ..
+                            'see also ' .. result.documentation,
+                        source = "snyk",
+                    }})
+                    print(linenumber)
+                end)
+            end,
+        }):start()
 
-        return {
-            bufnr = 0,
-            lnum = result.lineNumber - 1,
-            end_lnum = result.lineNumber - 1,
-            col = 0,
-            -- end_col = 1,
-            severity = warning,
-            message =
-                'Issue: ' .. result.iacDescription.issue .. '\n' ..
-                'Impact: ' .. result.iacDescription.impact .. '\n' .. 
-                'Resolve: ' .. result.iacDescription.resolve .. '\n' ..
-                '(' .. result.msg .. ')\n' ..
-                'see also ' .. result.documentation,
-            source = "snyk",
-        };
     end, json.infrastructureAsCodeIssues)
 
-    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
 end
-
--- WIP for performIaC
-local function getColAndLineNumber(pathByResult)
-    local i = 0
-    table.remove(pathByResult, 1)
-    table.remove(pathByResult)
-    local last = table.remove(pathByResult)
-    local fullPath = table.concat(vim.tbl_map(function(path)
-        i = i + 1
-        local pos = string.find(path, "%[")
-        if (pos) then
-            local name = string.sub(path, pos + 1, string.find(path, "%]") - 1)
-            path = string.sub(path, 1, pos - 1)
-            i = i + 1
-            return 
-                string.rep('  ', i - 3) .. path .. '.*\n'
-                .. string.rep('  ', i - 2) .. 'name: ' .. name .. '\n'
-        end
-        return string.rep('  ', i - 2) .. path  .. '.*\n' 
-    end, pathByResult), '')
-    fullPath = fullPath .. string.rep('  ', i - 1) .. last .. '.*'
-end
-
 
 local function getFilename(fullFile)
     local head = string.find(fullFile, '[^/]+$')

@@ -2,7 +2,7 @@
   "name": "snyk.nvim",
   "version": "0.1.0",
   "description": "snyk integration in neovim",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -21,6 +21,8 @@
   },
   "homepage": "https://github.com/maorun/snyk.nvim#readme",
   "dependencies": {
-    "snyk": "^1.996.0"
+    "@snyk/cloud-config-parser": "^1.14.3",
+    "snyk": "^1.996.0",
+    "ts-node": "^10.9.1"
   }
 }
