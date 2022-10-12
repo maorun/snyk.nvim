@@ -90,7 +90,6 @@ local function performIaC(currentFile, fullFile, json)
                             'see also ' .. result.documentation,
                         source = "snyk",
                     }})
-                    print(linenumber)
                 end)
             end,
         }):start()
