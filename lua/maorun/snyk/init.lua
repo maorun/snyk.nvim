@@ -244,6 +244,11 @@ local function auth()
     }):start()
 end
 
+local function shouldBeCheck(fullFile)
+    local isNoStream = string.find(fullFile, '.*://') == nil
+    return isNohStream
+end
+
 local M = {}
 function M.setup(options)
     checkSnykAvailable(function()
@@ -262,9 +267,12 @@ function M.setup(options)
             '*.c', '*.cc', '*.cpp', '*.cxx', '*.h', '*.hpp', '*.hxx', '*.ejs', '*.es', '*.es6', '*.htm', '*.html', '*.js', '*.jsx', '*.ts', '*.tsx', '*.vue', '*.java', '*.erb', '*.haml', '*.rb', '*.rhtml', '*.slim', '*.py', '*.go', '*.ASPX', '*.Aspx', '*.CS', '*.Cs', '*.aspx', '*.cs', '*.php', '*.xml'
         },
         callback = function(params)
-            startJob({
-                fullFile = vim.fn.expand('<afile>'),
-            })
+            local file = vim.fn.expand('<afile>')
+            if (shouldBeCheck(file)) then
+                startJob({
+                    fullFile = file
+                })
+            end
         end
     })
     vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost" }, {
@@ -274,9 +282,12 @@ function M.setup(options)
             '*.yaml',
         },
         callback = function(params)
-            startIaCJob({
-                fullFile = vim.fn.expand('<afile>'),
-            })
+            local file = vim.fn.expand('<afile>')
+            if (shouldBeCheck(file)) then
+                startIaCJob({
+                    fullFile = file
+                })
+            end
         end
     })
 end
