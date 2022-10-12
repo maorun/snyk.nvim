@@ -27,7 +27,8 @@ local function performTestCode(currentFile, fullFile, json)
             elseif (warning == "none") then
                 warning = vim.diagnostic.severity.HINT
             end
-            return {
+            local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk' .. location.startLine .. location.endLine)
+            vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {{
                 bufnr = 0,
                 lnum = location.startLine - 1,
                 end_lnum = location.endLine - 1,
@@ -36,12 +37,10 @@ local function performTestCode(currentFile, fullFile, json)
                 severity = warning,
                 message = result.message.text,
                 source = "snyk",
-            };
+            }})
         end
     end, json.runs[1].results)
 
-    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk' .. location.startLine .. location.endLine)
-    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
 end
 
 -- perform diagnostic for IaC
@@ -244,6 +243,11 @@ local function auth()
     }):start()
 end
 
+local function shouldBeCheck(fullFile)
+    local isNoStream = string.find(fullFile, '.*://') == nil
+    return isNoStream
+end
+
 local M = {}
 function M.setup(options)
     checkSnykAvailable(function()
@@ -262,9 +266,12 @@ function M.setup(options)
             '*.c', '*.cc', '*.cpp', '*.cxx', '*.h', '*.hpp', '*.hxx', '*.ejs', '*.es', '*.es6', '*.htm', '*.html', '*.js', '*.jsx', '*.ts', '*.tsx', '*.vue', '*.java', '*.erb', '*.haml', '*.rb', '*.rhtml', '*.slim', '*.py', '*.go', '*.ASPX', '*.Aspx', '*.CS', '*.Cs', '*.aspx', '*.cs', '*.php', '*.xml'
         },
         callback = function(params)
-            startJob({
-                fullFile = vim.fn.expand('<afile>'),
-            })
+            local file = vim.fn.expand('<afile>')
+            if (shouldBeCheck(file)) then
+                startJob({
+                    fullFile = file
+                })
+            end
         end
     })
     vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost" }, {
@@ -274,9 +281,12 @@ function M.setup(options)
             '*.yaml',
         },
         callback = function(params)
-            startIaCJob({
-                fullFile = vim.fn.expand('<afile>'),
-            })
+            local file = vim.fn.expand('<afile>')
+            if (shouldBeCheck(file)) then
+                startIaCJob({
+                    fullFile = file
+                })
+            end
         end
     })
 end
