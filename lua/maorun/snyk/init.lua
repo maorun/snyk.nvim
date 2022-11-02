@@ -44,8 +44,11 @@ local function performTestCode(currentFile, fullFile, json)
 end
 
 -- perform diagnostic for IaC
-local function performIaC(currentFile, fullFile, json)
-    diagnostics = vim.tbl_map(function(result)
+local function performIaC(fullPath, currentFile, fullFile, json)
+    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {})
+    local diagnostics = {}
+    local jobs = vim.tbl_map(function(result)
         local warning = result.severity
         if (warning == "medium") then
             warning = vim.diagnostic.severity.WARN
@@ -58,23 +61,22 @@ local function performIaC(currentFile, fullFile, json)
             warning = vim.diagnostic.severity.HINT
         end
         local linenumber = 0
-        Job:new({
+        return Job:new({
             command = 'npx',
-            cwd = cwd,
+            cwd = rootDir,
             args = {
                 "ts-node",
                 "index.ts",
-                fullFile,
+                fullPath,
                 result.msg
             },
             interactive = false,
             on_stdout = function(error, data)
                 linenumber = data
             end,
-            on_exit = function(signal)
+            on_exit = function(signal, ret)
                 vim.schedule(function()
-                    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk' .. linenumber)
-                    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {{
+                    table.insert(diagnostics, {
                         bufnr = 0,
                         lnum = tonumber(linenumber),
                         end_lnum = tonumber(linenumber),
@@ -88,13 +90,12 @@ local function performIaC(currentFile, fullFile, json)
                             '(' .. result.msg .. ')\n' ..
                             'see also ' .. result.documentation,
                         source = "snyk",
-                    }})
+                    })
+                    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
                 end)
             end,
         }):start()
-
     end, json.infrastructureAsCodeIssues)
-
 end
 
 local function getFilename(fullFile)
@@ -164,7 +165,7 @@ local function startIaCJob(params)
                 if (json.error) then
                     printWithoutHistory('got an error: "' .. json.error .. '"')
                 else
-                    performIaC(file, fullFile, json)
+                    performIaC(params.fullPath, file, fullFile, json)
                 end
             end)
         end,
@@ -284,6 +285,7 @@ function M.setup(options)
             local file = vim.fn.expand('<afile>')
             if (shouldBeCheck(file)) then
                 startIaCJob({
+                    fullPath = vim.fn.expand('%:p'),
                     fullFile = file
                 })
             end
