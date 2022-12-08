@@ -27,8 +27,7 @@ local function performTestCode(currentFile, fullFile, json)
             elseif (warning == "none") then
                 warning = vim.diagnostic.severity.HINT
             end
-            local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk' .. location.startLine .. location.endLine)
-            vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {{
+            return {
                 bufnr = 0,
                 lnum = location.startLine - 1,
                 end_lnum = location.endLine - 1,
@@ -37,10 +36,11 @@ local function performTestCode(currentFile, fullFile, json)
                 severity = warning,
                 message = result.message.text,
                 source = "snyk",
-            }})
+            }
         end
     end, json.runs[1].results)
-
+    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
 end
 
 -- perform diagnostic for IaC
