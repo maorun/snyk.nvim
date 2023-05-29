@@ -22,7 +22,7 @@
   "homepage": "https://github.com/maorun/snyk.nvim#readme",
   "dependencies": {
     "@snyk/cloud-config-parser": "^1.14.5",
-    "snyk": "^1.1118.0",
+    "snyk": "^1.1168.0",
     "ts-node": "^10.9.1"
   }
 }
