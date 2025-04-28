@@ -98,6 +98,34 @@ local function performIaC(fullPath, currentFile, fullFile, json)
     end, json.infrastructureAsCodeIssues)
 end
 
+-- perform diagnostic for Container
+local function performContainer(fullPath, currentFile, fullFile, json)
+    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {})
+    local diagnostics = {}
+    for _, result in ipairs(json.issues) do
+        local warning = result.severity
+        if (warning == "medium") then
+            warning = vim.diagnostic.severity.WARN
+        elseif (warning == "high") then
+            warning = vim.diagnostic.severity.ERROR
+        elseif (warning == "low") then
+            warning = vim.diagnostic.severity.INFO
+        else
+            warning = vim.diagnostic.severity.HINT
+        end
+        table.insert(diagnostics, {
+            bufnr = 0,
+            lnum = 0,
+            col = 0,
+            severity = warning,
+            message = result.title .. '\n' .. result.description,
+            source = "snyk",
+        })
+    end
+    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
+end
+
 local function getFilename(fullFile)
     local head = string.find(fullFile, '[^/]+$')
     return string.sub(fullFile, head)
@@ -172,6 +200,37 @@ local function startIaCJob(params)
     }):start()
 end
 
+local function startContainerJob(params)
+    local check = {}
+    local fullFile = params.fullFile
+    local file = getFilename(fullFile)
+    local cwd = getCwd(fullFile)
+    vim.diagnostic.reset()
+    Job:new({
+        command = snykCommand,
+        cwd = cwd,
+        args = {
+            "container",
+            "test",
+            file,
+            "--json",
+        },
+        interactive = false,
+        on_stdout = function(error, data)
+            table.insert(check, data)
+        end,
+        on_exit = function(signal)
+            vim.schedule(function()
+                local json = vim.fn.json_decode(check)
+                if (json.error) then
+                    printWithoutHistory('got an error: "' .. json.error .. '"')
+                else
+                    performContainer(params.fullPath, file, fullFile, json)
+                end
+            end)
+        end,
+    }):start()
+end
 
 local function checkSnykAvailable(afterCheck)
     if (vim.fn.executable(snykCommandGlobal) == 0) then
@@ -285,6 +344,23 @@ function M.setup(options)
             local file = vim.fn.expand('<afile>')
             if (shouldBeCheck(file)) then
                 startIaCJob({
+                    fullPath = vim.fn.expand('%:p'),
+                    fullFile = file
+                })
+            end
+        end
+    })
+    -- Add autocmd for Snyk Container
+    vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost" }, {
+        desc = 'Snyk Container',
+        group = snykGroup,
+        pattern = {
+            '*.dockerfile', '*.Dockerfile', '*.container',
+        },
+        callback = function(params)
+            local file = vim.fn.expand('<afile>')
+            if (shouldBeCheck(file)) then
+                startContainerJob({
                     fullPath = vim.fn.expand('%:p'),
                     fullFile = file
                 })
