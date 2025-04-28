@@ -126,6 +126,65 @@ local function performContainer(fullPath, currentFile, fullFile, json)
     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
 end
 
+-- Add a function to perform Snyk Open Source diagnostics
+local function performOpenSource(fullPath, currentFile, fullFile, json)
+    local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {})
+    local diagnostics = {}
+    for _, vuln in ipairs(json.vulnerabilities) do
+        local warning = vuln.severity
+        if (warning == "medium") then
+            warning = vim.diagnostic.severity.WARN
+        elseif (warning == "high") then
+            warning = vim.diagnostic.severity.ERROR
+        elseif (warning == "low") then
+            warning = vim.diagnostic.severity.INFO
+        else
+            warning = vim.diagnostic.severity.HINT
+        end
+        table.insert(diagnostics, {
+            bufnr = 0,
+            lnum = 0,
+            col = 0,
+            severity = warning,
+            message = vuln.title .. '\n' .. vuln.description .. '\nFix: ' .. (vuln.fix or "No fix available"),
+            source = "snyk",
+        })
+    end
+    vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
+end
+
+-- Add a function to start the Snyk Open Source job
+local function startOpenSourceJob(params)
+    local check = {}
+    local fullFile = params.fullFile
+    local file = getFilename(fullFile)
+    local cwd = getCwd(fullFile)
+    vim.diagnostic.reset()
+    Job:new({
+        command = snykCommand,
+        cwd = cwd,
+        args = {
+            "test",
+            "--json",
+        },
+        interactive = false,
+        on_stdout = function(error, data)
+            table.insert(check, data)
+        end,
+        on_exit = function(signal)
+            vim.schedule(function()
+                local json = vim.fn.json_decode(check)
+                if (json.error) then
+                    printWithoutHistory('got an error: "' .. json.error .. '"')
+                else
+                    performOpenSource(params.fullPath, file, fullFile, json)
+                end
+            end)
+        end,
+    }):start()
+end
+
 local function getFilename(fullFile)
     local head = string.find(fullFile, '[^/]+$')
     return string.sub(fullFile, head)
@@ -361,6 +420,23 @@ function M.setup(options)
             local file = vim.fn.expand('<afile>')
             if (shouldBeCheck(file)) then
                 startContainerJob({
+                    fullPath = vim.fn.expand('%:p'),
+                    fullFile = file
+                })
+            end
+        end
+    })
+    -- Add autocmd for Snyk Open Source
+    vim.api.nvim_create_autocmd({"BufReadPost", "BufWritePost" }, {
+        desc = 'Snyk Open Source',
+        group = snykGroup,
+        pattern = {
+            'package.json', 'requirements.txt', 'Gemfile', 'pom.xml', 'build.gradle', 'build.gradle.kts', 'Pipfile', 'go.mod', 'Cargo.toml', 'composer.json',
+        },
+        callback = function(params)
+            local file = vim.fn.expand('<afile>')
+            if (shouldBeCheck(file)) then
+                startOpenSourceJob({
                     fullPath = vim.fn.expand('%:p'),
                     fullFile = file
                 })
