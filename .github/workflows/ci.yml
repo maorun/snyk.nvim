@@ -1,0 +1,46 @@
+name: Ci
+
+on: [push]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stylua
+        uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check .
+  test:
+    needs: lint
+    name: Run Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        id: vim
+        with:
+          neovim: true
+          version: nightly
+
+      - name: luajit
+        uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: "luajit-openresty"
+
+      - name: luarocks
+        uses: leafo/gh-actions-luarocks@v5
+
+      - name: run test
+        shell: bash
+        run: |
+          luarocks install luacheck
+          luarocks install vusted
+          vusted ./test
