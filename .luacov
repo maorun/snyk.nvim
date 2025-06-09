@@ -1,0 +1,8 @@
+include = {
+  "./lua/"
+}
+exclude = {
+  "^/home/runner/.local/*",
+  "^/home/runner/work/snyk.nvim/snyk.nvim/.luarocks/*",
+  "*/.luarocks/*"
+}
