@@ -27,9 +27,12 @@ function M.startOpenSourceJob(params, snykCommand)
                 local json_string = table.concat(check)
                 local success, json = pcall(vim.fn.json_decode, json_string)
                 if not success or not json then
-                    utils.printWithoutHistory('Failed to decode JSON for Open Source: ' .. (json_string or 'empty response'))
+                    utils.printWithoutHistory(
+                        'Failed to decode JSON for Open Source: '
+                            .. (json_string or 'empty response')
+                    )
                     if json and json.error then
-                         utils.printWithoutHistory('Error from Snyk: ' .. json.error)
+                        utils.printWithoutHistory('Error from Snyk: ' .. json.error)
                     end
                     return
                 end
@@ -65,15 +68,20 @@ function M.startJob(params, snykCommand)
         on_exit = function(signal)
             vim.schedule(function()
                 local json_string = table.concat(check)
-                if json_string:sub(1,1) == '{' then -- Basic check if it looks like JSON
+                if json_string:sub(1, 1) == '{' then -- Basic check if it looks like JSON
                     local success, json = pcall(vim.fn.json_decode, json_string)
                     if not success or not json then
-                        utils.printWithoutHistory('Failed to decode JSON for Code Test: ' .. (json_string or 'empty response'))
+                        utils.printWithoutHistory(
+                            'Failed to decode JSON for Code Test: '
+                                .. (json_string or 'empty response')
+                        )
                         return
                     end
                     diagnostics.performTestCode(file, fullFile, json)
                 else
-                    utils.printWithoutHistory('got an error: "' .. (json_string or 'empty response') .. '"')
+                    utils.printWithoutHistory(
+                        'got an error: "' .. (json_string or 'empty response') .. '"'
+                    )
                 end
             end)
         end,
@@ -105,9 +113,11 @@ function M.startIaCJob(params, snykCommand, rootDir)
                 local json_string = table.concat(check)
                 local success, json = pcall(vim.fn.json_decode, json_string)
                 if not success or not json then
-                    utils.printWithoutHistory('Failed to decode JSON for IaC: ' .. (json_string or 'empty response'))
-                     if json and json.error then
-                         utils.printWithoutHistory('Error from Snyk: ' .. json.error)
+                    utils.printWithoutHistory(
+                        'Failed to decode JSON for IaC: ' .. (json_string or 'empty response')
+                    )
+                    if json and json.error then
+                        utils.printWithoutHistory('Error from Snyk: ' .. json.error)
                     end
                     return
                 end
@@ -129,39 +139,44 @@ function M.startContainerJob(params, snykCommand)
     local file = utils.getFilename(fullFile)
     local cwd = utils.getCwd(fullFile)
     vim.diagnostic.reset()
-    Job:new({
-        command = snykCommand,
-        cwd = cwd,
-        args = {
-            'container',
-            'test',
-            file,
-            '--json',
-        },
-        interactive = false,
-        on_stdout = function(error, data)
-            table.insert(check, data)
-        end,
-        on_exit = function(signal)
-            vim.schedule(function()
-                local json_string = table.concat(check)
-                local success, json = pcall(vim.fn.json_decode, json_string)
-                if not success or not json then
-                    utils.printWithoutHistory('Failed to decode JSON for Container: ' .. (json_string or 'empty response'))
-                     if json and json.error then
-                         utils.printWithoutHistory('Error from Snyk: ' .. json.error)
+    Job
+        :new({
+            command = snykCommand,
+            cwd = cwd,
+            args = {
+                'container',
+                'test',
+                file,
+                '--json',
+            },
+            interactive = false,
+            on_stdout = function(error, data)
+                table.insert(check, data)
+            end,
+            on_exit = function(signal)
+                vim.schedule(function()
+                    local json_string = table.concat(check)
+                    local success, json = pcall(vim.fn.json_decode, json_string)
+                    if not success or not json then
+                        utils.printWithoutHistory(
+                            'Failed to decode JSON for Container: '
+                                .. (json_string or 'empty response')
+                        )
+                        if json and json.error then
+                            utils.printWithoutHistory('Error from Snyk: ' .. json.error)
+                        end
+                        return
                     end
-                    return
-                end
 
-                if json.error then
-                    utils.printWithoutHistory('got an error: "' .. json.error .. '"')
-                else
-                    diagnostics.performContainer(params.fullPath, file, fullFile, json)
-                end
-            end)
-        end,
-    }):start()
+                    if json.error then
+                        utils.printWithoutHistory('got an error: "' .. json.error .. '"')
+                    else
+                        diagnostics.performContainer(params.fullPath, file, fullFile, json)
+                    end
+                end)
+            end,
+        })
+        :start()
 end
 
 return M
