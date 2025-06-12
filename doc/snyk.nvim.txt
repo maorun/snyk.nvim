@@ -1,29 +1,19 @@
-*snyk.nvim.txt*            For NVIM v0.8.0           Last change: 2025 June 10
+*snyk.nvim.txt*            For NVIM v0.8.0           Last change: 2025 June 12
 
 ==============================================================================
 Table of Contents                                *snyk.nvim-table-of-contents*
 
-1. WIP                                                         |snyk.nvim-wip|
-  - Requirements                                  |snyk.nvim-wip-requirements|
-  - Installation                                  |snyk.nvim-wip-installation|
-  - Usage                                                |snyk.nvim-wip-usage|
-  - Troubleshooting                            |snyk.nvim-wip-troubleshooting|
+  - Requirements                                      |snyk.nvim-requirements|
+  - Installation                                      |snyk.nvim-installation|
+  - Usage                                                    |snyk.nvim-usage|
+  - Troubleshooting                                |snyk.nvim-troubleshooting|
 
-==============================================================================
-1. WIP                                                         *snyk.nvim-wip*
-
-atm. only Snyk Code <https://docs.snyk.io/products/snyk-code> is integrated
-
-and Snyk Infrastructure as Code
-<https://docs.snyk.io/products/snyk-infrastructure-as-code> only for YAML files
-
-
-REQUIREMENTS                                      *snyk.nvim-wip-requirements*
+REQUIREMENTS                                          *snyk.nvim-requirements*
 
 Getting started with Snyk <https://docs.snyk.io/getting-started>
 
 
-INSTALLATION                                      *snyk.nvim-wip-installation*
+INSTALLATION                                          *snyk.nvim-installation*
 
 eg: vim-plug <https://github.com/junegunn/vim-plug>
 
@@ -33,14 +23,14 @@ eg: vim-plug <https://github.com/junegunn/vim-plug>
 <
 
 
-USAGE                                                    *snyk.nvim-wip-usage*
+USAGE                                                        *snyk.nvim-usage*
 
 >lua
     require('maorun.snyk').setup()
 <
 
 
-TROUBLESHOOTING                                *snyk.nvim-wip-troubleshooting*
+TROUBLESHOOTING                                    *snyk.nvim-troubleshooting*
 
 Q: Why are my files not scanned?
 
