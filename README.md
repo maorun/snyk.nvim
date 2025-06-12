@@ -1,11 +1,3 @@
-
-# WIP
-
-atm. only [Snyk Code](https://docs.snyk.io/products/snyk-code) is integrated
-
-and [Snyk Infrastructure as Code](https://docs.snyk.io/products/snyk-infrastructure-as-code) only for YAML files
-
-
 ## Requirements
 [Getting started with Snyk](https://docs.snyk.io/getting-started)
 
