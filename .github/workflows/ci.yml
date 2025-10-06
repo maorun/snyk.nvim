@@ -63,7 +63,7 @@ jobs:
             ${{ runner.os }}-lua-5.1-luarocks-
 
       - name: luarocks
-        uses: leafo/gh-actions-luarocks@v5
+        uses: leafo/gh-actions-luarocks@v6
 
       - name: install dependencies
         shell: bash
@@ -144,7 +144,7 @@ jobs:
             ${{ runner.os }}-lua-5.1-luarocks-
 
       - name: Setup Luarocks
-        uses: leafo/gh-actions-luarocks@v5
+        uses: leafo/gh-actions-luarocks@v6
 
       - name: Install dependencies
         run: |
