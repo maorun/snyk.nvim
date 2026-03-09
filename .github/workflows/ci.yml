@@ -102,14 +102,13 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     name: Generate and Commit Coverage Report
-    if: ${{ github.ref == 'refs/heads/master' }}
     permissions:
       contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.PAT || github.token }}
 
       - name: Setup Neovim
         uses: rhysd/action-setup-vim@v1
