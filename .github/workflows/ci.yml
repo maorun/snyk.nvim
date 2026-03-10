@@ -108,7 +108,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.PAT || github.token }}
 
       - name: Setup Neovim
         uses: rhysd/action-setup-vim@v1
