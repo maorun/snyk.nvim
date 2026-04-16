@@ -24,5 +24,8 @@
     "@snyk/cloud-config-parser": "^1.14.6",
     "snyk": "^1.1198.0",
     "ts-node": "^10.9.2"
+  },
+  "overrides": {
+    "yaml": "2.8.3"
   }
 }
