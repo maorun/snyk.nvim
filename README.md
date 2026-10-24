@@ -1,5 +1,9 @@
 ## Requirements
-[Getting started with Snyk](https://docs.snyk.io/getting-started)
+- Neovim >= 0.8.0
+- [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
+- Node.js and npm
+- [Snyk CLI](https://support.snyk.io/hc/en-us/articles/360381182825-Snyk-CLI-Getting-Started) (available in `$PATH` or installed via `npm install`)
+- [Getting started with Snyk](https://docs.snyk.io/getting-started)
 
 ## Installation
 eg:
