@@ -1,5 +1,5 @@
 *snyk.nvim.txt*
-                               For NVIM v0.8.0    Last change: 2026 October 19
+                               For NVIM v0.8.0    Last change: 2026 October 24
 
 ==============================================================================
 Table of Contents                                *snyk.nvim-table-of-contents*
