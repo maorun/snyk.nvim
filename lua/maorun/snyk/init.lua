@@ -30,35 +30,30 @@ function M.setup(options)
     -- Initialize current_snyk_command with the plugin-specific path first
     current_snyk_command = check_plugin
 
-    core.checkSnykAvailable(
-        rootDir,
-        check_global,
-        check_plugin,
-        function(snyk_command_path)
-            if snyk_command_path then
-                current_snyk_command = snyk_command_path -- Update with the actually found command
-                utils.printWithoutHistory('Snyk command set to: ' .. current_snyk_command)
+    core.checkSnykAvailable(rootDir, check_global, check_plugin, function(snyk_command_path)
+        if snyk_command_path then
+            current_snyk_command = snyk_command_path -- Update with the actually found command
+            utils.printWithoutHistory('Snyk command set to: ' .. current_snyk_command)
 
-                if M.options.auto_auth then
-                    -- Authenticate Snyk
-                    core.auth(rootDir, current_snyk_command)
-                end
-
-                if M.options.setup_autocmds then
-                    -- Setup autocommands, passing the determined snyk command and rootDir
-                    autocmds.setup_autocmds(current_snyk_command, rootDir)
-                end
-
-                utils.printWithoutHistory('Snyk setup complete.')
-            else
-                -- Keep current_snyk_command as nil or its initial value if check failed
-                current_snyk_command = nil
-                utils.printWithoutHistory(
-                    'Snyk initialization failed: Snyk command not found or installation failed.'
-                )
+            if M.options.auto_auth then
+                -- Authenticate Snyk
+                core.auth(rootDir, current_snyk_command)
             end
+
+            if M.options.setup_autocmds then
+                -- Setup autocommands, passing the determined snyk command and rootDir
+                autocmds.setup_autocmds(current_snyk_command, rootDir)
+            end
+
+            utils.printWithoutHistory('Snyk setup complete.')
+        else
+            -- Keep current_snyk_command as nil or its initial value if check failed
+            current_snyk_command = nil
+            utils.printWithoutHistory(
+                'Snyk initialization failed: Snyk command not found or installation failed.'
+            )
         end
-    )
+    end)
 end
 
 -- Public function to trigger authentication manually if needed
