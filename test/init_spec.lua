@@ -1,3 +1,18 @@
+if not package.loaded['plenary.job'] and not package.preload['plenary.job'] then
+    package.preload['plenary.job'] = function()
+        local Job = {}
+        Job.__index = Job
+        function Job:new(opts)
+            return setmetatable(opts or {}, Job)
+        end
+        function Job:start() end
+        return Job
+    end
+end
+
+local core = require('maorun.snyk.core')
+core.checkSnykAvailable = function() end
+
 describe('snyk setup and options', function()
     local snyk = require('maorun.snyk')
 
