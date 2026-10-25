@@ -28,3 +28,34 @@ describe('snyk setup and options', function()
         assert.is_false(snyk.options.setup_autocmds)
     end)
 end)
+
+describe('snyk utils', function()
+    local utils = require('maorun.snyk.utils')
+
+    it('should get filename from path', function()
+        assert.are.equal('utils.lua', utils.getFilename('lua/maorun/snyk/utils.lua'))
+    end)
+
+    it('should get cwd from path', function()
+        assert.are.equal('lua/maorun/snyk/', utils.getCwd('lua/maorun/snyk/utils.lua'))
+    end)
+
+    it('should print without history successfully', function()
+        local echoed = nil
+        local old_echo = vim.api and vim.api.nvim_echo
+        vim.api = vim.api or {}
+        vim.api.nvim_echo = function(chunks, history, opts)
+            echoed = chunks
+        end
+
+        utils.printWithoutHistory('test message')
+        assert.is_not_nil(echoed)
+        assert.are.equal('Snyk: test message', echoed[1][1])
+
+        if old_echo then
+            vim.api.nvim_echo = old_echo
+        else
+            vim.api.nvim_echo = nil
+        end
+    end)
+end)
