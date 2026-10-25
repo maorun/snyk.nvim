@@ -1,7 +1,709 @@
 ==============================================================================
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/autocmds.lua
+==============================================================================
+  1 local utils = require('maorun.snyk.utils')
+  1 local jobs = require('maorun.snyk.jobs')
+
+  1 local M = {}
+
+    -- snykCommand and rootDir will be passed from init.lua during setup
+  1 function M.setup_autocmds(snykCommand, rootDir)
+**0     local snykGroup = vim.api.nvim_create_augroup('snyk', { clear = true }) -- Added clear = true
+
+**0     vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufWritePost' }, {
+            desc = 'Snyk Code',
+            group = snykGroup,
+**0         pattern = {
+                '*.c',
+                '*.cc',
+                '*.cpp',
+                '*.cxx',
+                '*.h',
+                '*.hpp',
+                '*.hxx',
+                '*.ejs',
+                '*.es',
+                '*.es6',
+                '*.htm',
+                '*.html',
+                '*.js',
+                '*.jsx',
+                '*.ts',
+                '*.tsx',
+                '*.vue',
+                '*.java',
+                '*.erb',
+                '*.haml',
+                '*.rb',
+                '*.rhtml',
+                '*.slim',
+                '*.py',
+                '*.go',
+                '*.ASPX',
+                '*.Aspx',
+                '*.CS',
+                '*.Cs',
+                '*.aspx',
+                '*.cs',
+                '*.php',
+                '*.xml',
+            },
+            callback = function(params)
+**0             local file = vim.fn.expand('<afile>')
+**0             if utils.shouldBeCheck(file) then -- Use utils.shouldBeCheck
+**0                 jobs.startJob({ fullFile = file }, snykCommand)
+                end
+            end,
+        })
+
+**0     vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufWritePost' }, {
+            desc = 'Snyk Infrastructure as Code',
+            group = snykGroup,
+            pattern = { '*.yaml', '*.yml' }, -- Added *.yml as it's a common extension for YAML
+            callback = function(params)
+**0             local file = vim.fn.expand('<afile>')
+**0             if utils.shouldBeCheck(file) then -- Use utils.shouldBeCheck
+**0                 jobs.startIaCJob({
+                        fullPath = vim.fn.expand('%:p'),
+                        fullFile = file,
+**0                 }, snykCommand, rootDir)
+                end
+            end,
+        })
+
+**0     vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufWritePost' }, {
+            desc = 'Snyk Container',
+            group = snykGroup,
+            pattern = { '*.dockerfile', '*.Dockerfile', '*.container' },
+            callback = function(params)
+**0             local file = vim.fn.expand('<afile>')
+**0             if utils.shouldBeCheck(file) then -- Use utils.shouldBeCheck
+**0                 jobs.startContainerJob({
+                        fullPath = vim.fn.expand('%:p'),
+                        fullFile = file,
+**0                 }, snykCommand)
+                end
+            end,
+        })
+
+**0     vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufWritePost' }, {
+            desc = 'Snyk Open Source',
+            group = snykGroup,
+**0         pattern = {
+                'package.json',
+                'requirements.txt',
+                'Gemfile',
+                'pom.xml',
+                'build.gradle',
+                'build.gradle.kts',
+                'Pipfile',
+                'go.mod',
+                'Cargo.toml',
+                'composer.json',
+            },
+            callback = function(params)
+**0             local file = vim.fn.expand('<afile>')
+**0             if utils.shouldBeCheck(file) then -- Use utils.shouldBeCheck
+**0                 jobs.startOpenSourceJob({
+                        fullPath = vim.fn.expand('%:p'),
+                        fullFile = file,
+**0                 }, snykCommand)
+                end
+            end,
+        })
+    end
+
+  1 return M
+
+==============================================================================
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/core.lua
+==============================================================================
+  1 local Job = require('plenary.job')
+  1 local utils = require('maorun.snyk.utils')
+
+  1 local M = {}
+
+    -- rootDir, snykCommandGlobal, and snykCommand are passed in or set during init
+    -- For now, snykCommand will be a return value from checkSnykAvailable
+    -- and then passed to auth.
+
+  1 function M.checkSnykAvailable(rootDir, snykCommandGlobal, initialSnykCommand, afterCheck)
+**0     local currentSnykCommand = initialSnykCommand
+**0     if vim.fn.executable(snykCommandGlobal) == 0 then
+**0         if vim.fn.executable(currentSnykCommand) == 0 and vim.fn.executable('npm') == 0 then
+**0             utils.printWithoutHistory('Snyk not available')
+                -- Consider how to handle this case - maybe afterCheck should receive an error?
+**0             afterCheck(nil) -- Indicate Snyk is not available
+**0         elseif vim.fn.executable(currentSnykCommand) == 0 then
+**0             utils.printWithoutHistory('Snyk not found, attempting to install via npm...')
+**0             Job:new({
+                    command = 'npm',
+                    cwd = rootDir,
+                    args = { 'install' },
+                    interactive = false,
+                    on_exit = function(job, exit_code)
+**0                     vim.schedule(function()
+**0                         if exit_code == 0 then
+**0                             utils.printWithoutHistory('Snyk installed via npm')
+**0                             afterCheck(currentSnykCommand)
+                            else
+**0                             utils.printWithoutHistory(
+**0                                 'Snyk npm install failed. Exit code: ' .. exit_code
+                                )
+**0                             afterCheck(nil) -- Indicate Snyk is not available
+                            end
+                        end)
+                    end,
+**0             }):start()
+            else
+**0             utils.printWithoutHistory('Snyk available (plugin at ' .. currentSnykCommand .. ')')
+**0             afterCheck(currentSnykCommand)
+            end
+        else
+**0         currentSnykCommand = snykCommandGlobal
+**0         utils.printWithoutHistory('Snyk available (global at ' .. currentSnykCommand .. ')')
+**0         afterCheck(currentSnykCommand)
+        end
+    end
+
+  1 function M.auth(rootDir, snykCommand)
+**0     if not snykCommand then
+**0         utils.printWithoutHistory('Snyk command not available, skipping auth.')
+**0         return
+        end
+
+**0     local apiKey = ''
+        Job
+**0         :new({
+                command = snykCommand,
+                cwd = rootDir,
+                args = { 'config', 'get', 'api' },
+                interactive = false,
+                on_stdout = function(_, data) -- Ignoring error argument as it's often nil for on_stdout
+**0                 if data then
+**0                     apiKey = data
+                    end
+                end,
+                on_stderr = function(_, data)
+                    -- utils.printWithoutHistory('Auth stderr: ' .. data) -- For debugging if needed
+                end,
+                on_exit = function(_, exit_code) -- Ignoring signal argument
+**0                 vim.schedule(function()
+**0                     apiKey = vim.fn.trim(apiKey) -- Trim whitespace
+**0                     if apiKey == '' or apiKey == 'null' or exit_code ~= 0 then -- Also check for 'null' string
+**0                         utils.printWithoutHistory(
+                                'Snyk not yet authenticated (API key is empty or error). Attempting auth...'
+                            )
+                            Job
+**0                             :new({
+                                    command = snykCommand,
+                                    args = { 'auth' },
+                                    interactive = false, -- Keep false unless direct interaction is needed
+                                    on_exit = function(_, auth_exit_code)
+**0                                     vim.schedule(function()
+**0                                         if auth_exit_code == 0 then
+**0                                             utils.printWithoutHistory(
+                                                    'Snyk auth process initiated. Please check your browser.'
+                                                )
+                                            else
+**0                                             utils.printWithoutHistory(
+                                                    'Snyk auth command failed. Exit code: '
+**0                                                     .. auth_exit_code
+                                                )
+                                            end
+                                        end)
+                                    end,
+                                })
+**0                             :start()
+                        else
+**0                         utils.printWithoutHistory('Snyk already authenticated.')
+                        end
+                    end)
+                end,
+            })
+**0         :start()
+    end
+
+  1 return M
+
+==============================================================================
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/diagnostics.lua
+==============================================================================
+  1 local Job = require('plenary.job') -- Assuming Job is used by one of the functions, if not remove.
+    -- If utils.lua is needed by these functions, add:
+    -- local utils = require('maorun.snyk.utils')
+
+  1 local M = {}
+
+    -- perform diagnostic
+  1 function M.performTestCode(currentFile, fullFile, json)
+**0     local diagnostics = vim.tbl_map(function(result)
+            -- https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Documents/CommitteeSpecifications/2.1.0/sarif-schema-2.1.0.json
+**0         local file = result.locations[1].physicalLocation.artifactLocation.uri
+**0         if file == currentFile then
+**0             local location = result.locations[1].physicalLocation.region
+**0             local warning = result.level
+**0             if warning == 'warning' then
+**0                 warning = vim.diagnostic.severity.WARN
+**0             elseif warning == 'error' then
+**0                 warning = vim.diagnostic.severity.ERROR
+**0             elseif warning == 'note' then
+**0                 warning = vim.diagnostic.severity.INFO
+**0             elseif warning == 'none' then
+**0                 warning = vim.diagnostic.severity.HINT
+                end
+**0             return {
+                    bufnr = 0,
+                    lnum = location.startLine - 1,
+                    end_lnum = location.endLine - 1,
+                    col = location.startColumn - 1,
+                    end_col = location.endColumn,
+                    severity = warning,
+                    message = result.message.text,
+                    source = 'snyk',
+                }
+            end
+**0     end, json.runs[1].results)
+**0     local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+**0     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
+    end
+
+    -- perform diagnostic for IaC
+  1 function M.performIaC(fullPath, currentFile, fullFile, json, rootDir) -- Added rootDir
+**0     local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+**0     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {})
+**0     local diagnostics = {}
+**0     local jobs = vim.tbl_map(function(result)
+**0         local warning = result.severity
+**0         if warning == 'medium' then
+**0             warning = vim.diagnostic.severity.WARN
+**0         elseif warning == 'high' then
+**0             warning = vim.diagnostic.severity.ERROR
+**0         elseif warning == 'low' then
+**0             warning = vim.diagnostic.severity.WARN
+                -- warning = vim.diagnostic.severity.INFO
+            else
+**0             warning = vim.diagnostic.severity.HINT
+            end
+**0         local linenumber = 0
+**0         return Job:new({
+                command = 'npx',
+                cwd = rootDir, -- Used rootDir
+**0             args = {
+                    'ts-node',
+                    'index.ts',
+                    fullPath,
+**0                 result.msg,
+                },
+                interactive = false,
+                on_stdout = function(error, data)
+**0                 linenumber = data
+                end,
+                on_exit = function(signal, ret)
+**0                 vim.schedule(function()
+**0                     table.insert(diagnostics, {
+                            bufnr = 0,
+                            lnum = tonumber(linenumber),
+                            end_lnum = tonumber(linenumber),
+                            col = 0,
+                            -- end_col = 1,
+                            severity = warning,
+**0                         message = 'Issue: '
+**0                             .. result.iacDescription.issue
+**0                             .. '\n'
+**0                             .. 'Impact: '
+**0                             .. result.iacDescription.impact
+**0                             .. '\n'
+**0                             .. 'Resolve: '
+**0                             .. result.iacDescription.resolve
+**0                             .. '\n'
+**0                             .. '('
+**0                             .. result.msg
+**0                             .. ')\n'
+**0                             .. 'see also '
+**0                             .. result.documentation,
+                            source = 'snyk',
+                        })
+**0                     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
+                    end)
+                end,
+**0         }):start()
+**0     end, json.infrastructureAsCodeIssues)
+    end
+
+    -- perform diagnostic for Container
+  1 function M.performContainer(fullPath, currentFile, fullFile, json)
+**0     local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+**0     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {})
+**0     local diagnostics = {}
+**0     for _, result in ipairs(json.issues) do
+**0         local warning = result.severity
+**0         if warning == 'medium' then
+**0             warning = vim.diagnostic.severity.WARN
+**0         elseif warning == 'high' then
+**0             warning = vim.diagnostic.severity.ERROR
+**0         elseif warning == 'low' then
+**0             warning = vim.diagnostic.severity.INFO
+            else
+**0             warning = vim.diagnostic.severity.HINT
+            end
+**0         table.insert(diagnostics, {
+                bufnr = 0,
+                lnum = 0,
+                col = 0,
+                severity = warning,
+                message = result.title .. '\n' .. result.description,
+                source = 'snyk',
+            })
+        end
+**0     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
+    end
+
+    -- Add a function to perform Snyk Open Source diagnostics
+  1 function M.performOpenSource(fullPath, currentFile, fullFile, json)
+**0     local namespace = vim.api.nvim_create_namespace(currentFile .. 'snyk')
+**0     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), {})
+**0     local diagnostics = {}
+**0     for _, vuln in ipairs(json.vulnerabilities) do
+**0         local warning = vuln.severity
+**0         if warning == 'medium' then
+**0             warning = vim.diagnostic.severity.WARN
+**0         elseif warning == 'high' then
+**0             warning = vim.diagnostic.severity.ERROR
+**0         elseif warning == 'low' then
+**0             warning = vim.diagnostic.severity.INFO
+            else
+**0             warning = vim.diagnostic.severity.HINT
+            end
+**0         table.insert(diagnostics, {
+                bufnr = 0,
+                lnum = 0,
+                col = 0,
+                severity = warning,
+**0             message = vuln.title
+**0                 .. '\n'
+**0                 .. vuln.description
+**0                 .. '\nFix: '
+**0                 .. (vuln.fix or 'No fix available'),
+                source = 'snyk',
+            })
+        end
+**0     vim.diagnostic.set(namespace, vim.fn.bufnr(fullFile), diagnostics)
+    end
+
+  1 return M
+
+==============================================================================
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/init.lua
+==============================================================================
+    -- Module-level state for snyk command path
+  1 local current_snyk_command = nil
+
+    -- Original global-like variables
+  2 local rootDir = vim.fn.expand('<sfile>:h:h:h:h')
+  1 local snykCommandGlobal = 'snyk' -- Global snyk command name
+  1 local initialSnykPluginCommand = rootDir .. '/node_modules/.bin/snyk' -- Snyk command specific to the plugin
+
+    -- Require necessary modules
+  1 local utils = require('maorun.snyk.utils')
+  1 local core = require('maorun.snyk.core')
+  1 local autocmds = require('maorun.snyk.autocmds')
+    -- Job, diagnostics, and jobs are dependencies of core and autocmds
+
+  1 local M = {}
+
+  1 local default_options = {
+        snyk_command = nil,
+        auto_auth = true,
+        setup_autocmds = true,
+    }
+
+  1 function M.setup(options)
+ 12     M.options = vim.tbl_deep_extend('force', default_options, options or {})
+
+  6     local custom_snyk_command = M.options.snyk_command or M.options.snykCommand or M.options.command
+  6     local check_global = custom_snyk_command or snykCommandGlobal
+  6     local check_plugin = custom_snyk_command or initialSnykPluginCommand
+
+        -- Initialize current_snyk_command with the plugin-specific path first
+  6     current_snyk_command = check_plugin
+
+ 12     core.checkSnykAvailable(rootDir, check_global, check_plugin, function(snyk_command_path)
+**0         if snyk_command_path then
+**0             current_snyk_command = snyk_command_path -- Update with the actually found command
+**0             utils.printWithoutHistory('Snyk command set to: ' .. current_snyk_command)
+
+**0             if M.options.auto_auth then
+                    -- Authenticate Snyk
+**0                 core.auth(rootDir, current_snyk_command)
+                end
+
+**0             if M.options.setup_autocmds then
+                    -- Setup autocommands, passing the determined snyk command and rootDir
+**0                 autocmds.setup_autocmds(current_snyk_command, rootDir)
+                end
+
+**0             utils.printWithoutHistory('Snyk setup complete.')
+            else
+                -- Keep current_snyk_command as nil or its initial value if check failed
+**0             current_snyk_command = nil
+**0             utils.printWithoutHistory(
+                    'Snyk initialization failed: Snyk command not found or installation failed.'
+                )
+            end
+        end)
+    end
+
+    -- Public function to trigger authentication manually if needed
+  1 function M.auth()
+**0     if current_snyk_command then
+**0         core.auth(rootDir, current_snyk_command)
+        else
+**0         utils.printWithoutHistory(
+                'Snyk command not yet determined or not found. Cannot authenticate. Run setup or check Snyk installation.'
+            )
+        end
+    end
+
+    -- Initial setup call
+  1 M.setup()
+
+    -- Autoreload on change
+  2 vim.cmd([[
+        augroup snykReload
+            autocmd!
+            autocmd! BufWritePost */maorun/**.lua so %
+        augroup END
+  1 ]])
+
+  1 return M
+
+==============================================================================
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/jobs.lua
+==============================================================================
+  1 local Job = require('plenary.job')
+  1 local utils = require('maorun.snyk.utils')
+  1 local diagnostics = require('maorun.snyk.diagnostics')
+
+  1 local M = {}
+
+    -- Added snykCommand and rootDir as parameters for now
+  1 function M.startOpenSourceJob(params, snykCommand)
+**0     local check = {}
+**0     local fullFile = params.fullFile
+**0     local file = utils.getFilename(fullFile)
+**0     local cwd = utils.getCwd(fullFile)
+**0     vim.diagnostic.reset()
+**0     Job:new({
+            command = snykCommand,
+            cwd = cwd,
+**0         args = {
+                'test',
+                '--json',
+            },
+            interactive = false,
+            on_stdout = function(error, data)
+**0             table.insert(check, data)
+            end,
+            on_exit = function(signal)
+**0             vim.schedule(function()
+**0                 local json_string = table.concat(check)
+**0                 local success, json = pcall(vim.fn.json_decode, json_string)
+**0                 if not success or not json then
+**0                     utils.printWithoutHistory(
+                            'Failed to decode JSON for Open Source: '
+**0                             .. (json_string or 'empty response')
+                        )
+**0                     if json and json.error then
+**0                         utils.printWithoutHistory('Error from Snyk: ' .. json.error)
+                        end
+**0                     return
+                    end
+
+**0                 if json.error then
+**0                     utils.printWithoutHistory('got an error: "' .. json.error .. '"')
+                    else
+**0                     diagnostics.performOpenSource(params.fullPath, file, fullFile, json)
+                    end
+                end)
+            end,
+**0     }):start()
+    end
+
+    -- Added snykCommand as a parameter for now
+  1 function M.startJob(params, snykCommand)
+**0     local check = {}
+**0     local fullFile = params.fullFile
+**0     local file = utils.getFilename(fullFile)
+**0     local cwd = utils.getCwd(fullFile)
+**0     Job:new({
+            command = snykCommand,
+            cwd = cwd,
+**0         args = {
+                'code',
+                'test',
+                '--json',
+            },
+            interactive = false,
+            on_stdout = function(error, data)
+**0             table.insert(check, data)
+            end,
+            on_exit = function(signal)
+**0             vim.schedule(function()
+**0                 local json_string = table.concat(check)
+**0                 if json_string:sub(1, 1) == '{' then -- Basic check if it looks like JSON
+**0                     local success, json = pcall(vim.fn.json_decode, json_string)
+**0                     if not success or not json then
+**0                         utils.printWithoutHistory(
+                                'Failed to decode JSON for Code Test: '
+**0                                 .. (json_string or 'empty response')
+                            )
+**0                         return
+                        end
+**0                     diagnostics.performTestCode(file, fullFile, json)
+                    else
+**0                     utils.printWithoutHistory(
+**0                         'got an error: "' .. (json_string or 'empty response') .. '"'
+                        )
+                    end
+                end)
+            end,
+**0     }):start()
+    end
+
+    -- Added snykCommand and rootDir as parameters for now
+  1 function M.startIaCJob(params, snykCommand, rootDir)
+**0     local check = {}
+**0     local fullFile = params.fullFile
+**0     local file = utils.getFilename(fullFile)
+**0     local cwd = utils.getCwd(fullFile)
+**0     vim.diagnostic.reset()
+**0     Job:new({
+            command = snykCommand,
+            cwd = cwd,
+**0         args = {
+                'iac',
+                'test',
+                file,
+                '--json',
+            },
+            interactive = false,
+            on_stdout = function(error, data)
+**0             table.insert(check, data)
+            end,
+            on_exit = function(signal)
+**0             vim.schedule(function()
+**0                 local json_string = table.concat(check)
+**0                 local success, json = pcall(vim.fn.json_decode, json_string)
+**0                 if not success or not json then
+**0                     utils.printWithoutHistory(
+**0                         'Failed to decode JSON for IaC: ' .. (json_string or 'empty response')
+                        )
+**0                     if json and json.error then
+**0                         utils.printWithoutHistory('Error from Snyk: ' .. json.error)
+                        end
+**0                     return
+                    end
+
+**0                 if json.error then
+**0                     utils.printWithoutHistory('got an error: "' .. json.error .. '"')
+                    else
+**0                     diagnostics.performIaC(params.fullPath, file, fullFile, json, rootDir) -- Pass rootDir here
+                    end
+                end)
+            end,
+**0     }):start()
+    end
+
+    -- Added snykCommand as a parameter for now
+  1 function M.startContainerJob(params, snykCommand)
+**0     local check = {}
+**0     local fullFile = params.fullFile
+**0     local file = utils.getFilename(fullFile)
+**0     local cwd = utils.getCwd(fullFile)
+**0     vim.diagnostic.reset()
+        Job
+**0         :new({
+                command = snykCommand,
+                cwd = cwd,
+**0             args = {
+                    'container',
+                    'test',
+                    file,
+                    '--json',
+                },
+                interactive = false,
+                on_stdout = function(error, data)
+**0                 table.insert(check, data)
+                end,
+                on_exit = function(signal)
+**0                 vim.schedule(function()
+**0                     local json_string = table.concat(check)
+**0                     local success, json = pcall(vim.fn.json_decode, json_string)
+**0                     if not success or not json then
+**0                         utils.printWithoutHistory(
+                                'Failed to decode JSON for Container: '
+**0                                 .. (json_string or 'empty response')
+                            )
+**0                         if json and json.error then
+**0                             utils.printWithoutHistory('Error from Snyk: ' .. json.error)
+                            end
+**0                         return
+                        end
+
+**0                     if json.error then
+**0                         utils.printWithoutHistory('got an error: "' .. json.error .. '"')
+                        else
+**0                         diagnostics.performContainer(params.fullPath, file, fullFile, json)
+                        end
+                    end)
+                end,
+            })
+**0         :start()
+    end
+
+  1 return M
+
+==============================================================================
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/utils.lua
+==============================================================================
+  1 local M = {}
+
+  1 function M.printWithoutHistory(text)
+  1     local msg = 'Snyk: ' .. tostring(text)
+  1     if vim.api and vim.api.nvim_echo then
+  2         vim.api.nvim_echo({ { msg, '' } }, false, {})
+**0     elseif vim.fn and vim.fn.execute then
+**0         vim.cmd('echo ' .. vim.fn.string(msg))
+        end
+    end
+
+  1 function M.getFilename(fullFile)
+  1     local head = string.find(fullFile, '[^/]+$')
+  1     return string.sub(fullFile, head)
+    end
+
+  1 function M.getCwd(fullFile)
+  1     local head = string.find(fullFile, '[^/]+$')
+  1     if head == 1 then
+**0         return '.'
+        end
+  1     return string.sub(fullFile, 1, head - 1)
+    end
+
+  1 return M
+
+==============================================================================
 Summary
 ==============================================================================
 
-File  Hits Missed Coverage
---------------------------
-Total 0    0      0.00%
+File                                                                  Hits Missed Coverage
+------------------------------------------------------------------------------------------
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/autocmds.lua    5    22     18.52%
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/core.lua        6    41     12.77%
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/diagnostics.lua 7    86     7.53%
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/init.lua        21   13     61.76%
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/jobs.lua        9    82     9.89%
+/home/runner/work/snyk.nvim/snyk.nvim/lua/maorun/snyk/utils.lua       13   3      81.25%
+------------------------------------------------------------------------------------------
+Total                                                                 61   247    19.81%

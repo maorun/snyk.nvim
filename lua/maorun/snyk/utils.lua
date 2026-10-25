@@ -1,8 +1,12 @@
 local M = {}
 
 function M.printWithoutHistory(text)
-    text = 'Snyk: ' .. text
-    -- vim.cmd("echo '" .. text .. "'")
+    local msg = 'Snyk: ' .. tostring(text)
+    if vim.api and vim.api.nvim_echo then
+        vim.api.nvim_echo({ { msg, '' } }, false, {})
+    elseif vim.fn and vim.fn.execute then
+        vim.cmd('echo ' .. vim.fn.string(msg))
+    end
 end
 
 function M.getFilename(fullFile)
