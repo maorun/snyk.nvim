@@ -14,24 +14,40 @@ local autocmds = require('maorun.snyk.autocmds')
 
 local M = {}
 
-function M.setup(options) -- options are not currently used, but good to keep for future
+local default_options = {
+    snyk_command = nil,
+    auto_auth = true,
+    setup_autocmds = true,
+}
+
+function M.setup(options)
+    M.options = vim.tbl_deep_extend('force', default_options, options or {})
+
+    local custom_snyk_command = M.options.snyk_command or M.options.snykCommand or M.options.command
+    local check_global = custom_snyk_command or snykCommandGlobal
+    local check_plugin = custom_snyk_command or initialSnykPluginCommand
+
     -- Initialize current_snyk_command with the plugin-specific path first
-    current_snyk_command = initialSnykPluginCommand
+    current_snyk_command = check_plugin
 
     core.checkSnykAvailable(
         rootDir,
-        snykCommandGlobal,
-        initialSnykPluginCommand,
+        check_global,
+        check_plugin,
         function(snyk_command_path)
             if snyk_command_path then
                 current_snyk_command = snyk_command_path -- Update with the actually found command
                 utils.printWithoutHistory('Snyk command set to: ' .. current_snyk_command)
 
-                -- Authenticate Snyk
-                core.auth(rootDir, current_snyk_command)
+                if M.options.auto_auth then
+                    -- Authenticate Snyk
+                    core.auth(rootDir, current_snyk_command)
+                end
 
-                -- Setup autocommands, passing the determined snyk command and rootDir
-                autocmds.setup_autocmds(current_snyk_command, rootDir)
+                if M.options.setup_autocmds then
+                    -- Setup autocommands, passing the determined snyk command and rootDir
+                    autocmds.setup_autocmds(current_snyk_command, rootDir)
+                end
 
                 utils.printWithoutHistory('Snyk setup complete.')
             else

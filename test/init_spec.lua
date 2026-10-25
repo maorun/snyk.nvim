@@ -1,5 +1,30 @@
-describe('initial test', function()
-    it('should be true', function()
-        assert.is_true(true)
+describe('snyk setup and options', function()
+    local snyk = require('maorun.snyk')
+
+    it('should use default options when none provided', function()
+        snyk.setup()
+        assert.is_not_nil(snyk.options)
+        assert.is_nil(snyk.options.snyk_command)
+        assert.is_true(snyk.options.auto_auth)
+        assert.is_true(snyk.options.setup_autocmds)
+    end)
+
+    it('should accept and apply custom snyk_command', function()
+        snyk.setup({ snyk_command = '/usr/bin/snyk' })
+        assert.are.equal('/usr/bin/snyk', snyk.options.snyk_command)
+    end)
+
+    it('should accept alternative option keys for snyk command', function()
+        snyk.setup({ snykCommand = 'snyk-alt' })
+        assert.are.equal('snyk-alt', snyk.options.snykCommand)
+
+        snyk.setup({ command = 'snyk-cmd' })
+        assert.are.equal('snyk-cmd', snyk.options.command)
+    end)
+
+    it('should accept auto_auth and setup_autocmds options', function()
+        snyk.setup({ auto_auth = false, setup_autocmds = false })
+        assert.is_false(snyk.options.auto_auth)
+        assert.is_false(snyk.options.setup_autocmds)
     end)
 end)
